@@ -19,6 +19,7 @@ type Option func(*labelsOption)
 type labelsOption struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
+	crossClusterOnly  bool
 	method            string
 	path              string
 	retryCondition    []RetryOption
@@ -39,6 +40,13 @@ func WithSourceLabelsOption(sourceLabels map[string]string) Option {
 func WithDestinationLabelsOption(destinationLabels map[string]string) Option {
 	return func(option *labelsOption) {
 		option.destinationLabels = destinationLabels
+	}
+}
+
+// WithCrossClusterOnly excludes source and destination pairs from the same cluster.
+func WithCrossClusterOnly() Option {
+	return func(option *labelsOption) {
+		option.crossClusterOnly = true
 	}
 }
 
