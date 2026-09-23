@@ -10,8 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
@@ -53,4 +55,28 @@ func TestRetryConditionCurlOptions(t *testing.T) {
 
 	// Non-matching dest-port condition: no retry even on success.
 	assert.Empty(t, newRC(WithRetryDestPort(8080)).CurlOptions(ep, features.IPFamilyV4, pod, params, true))
+}
+
+func TestPodToPodCrossClusterOption(t *testing.T) {
+	pod := func(cluster string) check.Pod {
+		return check.Pod{
+			K8sClient: &k8s.Client{RawConfig: clientcmdapi.Config{
+				Contexts: map[string]*clientcmdapi.Context{"": {Cluster: cluster}},
+			}},
+			Pod: &corev1.Pod{},
+		}
+	}
+
+	source := pod("source")
+	localDestination := pod("source")
+	remoteDestination := pod("destination")
+
+	scenario := PodToPod(WithCrossClusterOnly()).(*podToPod)
+	assert.Equal(t, "pod-to-pod-cross-cluster", scenario.Name())
+	assert.False(t, scenario.matchesCluster(&source, &localDestination))
+	assert.True(t, scenario.matchesCluster(&source, &remoteDestination))
+
+	unfilteredScenario := PodToPod().(*podToPod)
+	assert.True(t, unfilteredScenario.matchesCluster(&source, &localDestination))
+	assert.True(t, unfilteredScenario.matchesCluster(&source, &remoteDestination))
 }
